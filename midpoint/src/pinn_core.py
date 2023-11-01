@@ -1,7 +1,14 @@
+import math
 from typing import Callable
 import numpy as np
 import torch
 from torch import nn
+
+def shift(x, t) -> torch.Tensor:
+  shift_x = torch.sin(math.pi*x)
+  shift_t =(1.0-t)
+  res = shift_x.mul(shift_t)
+  return res
 
 class PINN(nn.Module):
     """Simple neural network accepting two features as input and returning a single output
@@ -35,7 +42,7 @@ class PINN(nn.Module):
         # if requested pin the boundary conditions
         # using a surrogate model: (x - 0) * (x - L) * NN(x)
         if self.pinning:
-            logits *= (x - x[0]) * (x - x[-1]) * (t - t[0]) * (t - t[-1])
+            logits *= (x - 0.0)*(x - 1.0)*(t - 0.0)*(t - 1.0) + shift(x, t)
 
         return logits
 
@@ -71,30 +78,59 @@ def dfdx(pinn: PINN, x: torch.Tensor, t: torch.Tensor, order: int = 1):
     return df(f_value, x, order=order)
 
 
+class TrainResult:
+    def __init__(
+            self,
+            loss: np.ndarray,
+            vm_norm: np.ndarray,
+            l2_norm: np.ndarray,
+            vm_exact_norm: float,
+            l2_exact_norm: float
+        ):
+        self.loss = loss
+        self.vm_norm = vm_norm
+        self.l2_norm = l2_norm
+        self.vm_exact_norm = vm_exact_norm
+        self.l2_exact_norm = l2_exact_norm
+
+
 def train_model(
-    nn_approximator: PINN,
+    pinn: PINN,
     loss_fn: Callable,
+    error_calc,
     learning_rate: int = 0.01,
     max_epochs: int = 1_000,
     device="cpu"
-) -> PINN:
+) -> TrainResult:
 
-    optimizer = torch.optim.Adam(nn_approximator.parameters(), lr=learning_rate)
+    optimizer = torch.optim.Adam(pinn.parameters(), lr=learning_rate)
     loss_values = []
+    l2_norm = []
+    vm_norm = []
     for epoch in range(max_epochs):
 
         try:
 
-            loss: torch.Tensor = loss_fn(nn_approximator)
+            loss = loss_fn(pinn)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
             loss_values.append(loss.item())
+            l2_norm.append(error_calc.l2_norm(pinn))
+            vm_norm.append(error_calc.vm_norm(pinn))
             if (epoch + 1) % 10 == 0:
                 print(f"Epoch: {epoch + 1} - Loss: {float(loss):>7f}")
 
         except KeyboardInterrupt:
             break
 
-    return nn_approximator, np.array(loss_values)
+    result = TrainResult(
+        loss          = np.array(loss_values), 
+        vm_norm       = np.array(l2_norm), 
+        l2_norm       = np.array(vm_norm), 
+        vm_exact_norm = error_calc.vm_exact_norm,
+        l2_exact_norm = error_calc.l2_exact_norm
+    )
+    
+    return result
