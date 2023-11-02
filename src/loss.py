@@ -22,8 +22,8 @@ class Loss:
         t = self.t
         epsilon = self.epsilon
         device = x.device
-        dx = 1.0 / x.numel()
-        dt = 1.0 / t.numel()
+        dx = 1.0 / self.n_points_x
+        dt = 1.0 / self.n_points_t
 
         # norm is (v,v)_VM = epsilon (dv/dx,dvdx)+epsilon (dv/dy,dvdy)
 
