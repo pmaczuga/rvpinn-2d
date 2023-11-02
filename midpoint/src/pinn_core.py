@@ -42,7 +42,8 @@ class PINN(nn.Module):
         # if requested pin the boundary conditions
         # using a surrogate model: (x - 0) * (x - L) * NN(x)
         if self.pinning:
-            logits *= (x - 0.0)*(x - 1.0)*(t - 0.0)*(t - 1.0) + shift(x, t)
+            logits *= (x - 0.0)*(x - 1.0)*(t - 0.0)*(t - 1.0)
+            logits += shift(x, t)
 
         return logits
 

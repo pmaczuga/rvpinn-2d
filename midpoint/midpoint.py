@@ -1,4 +1,5 @@
 import os
+import shutil
 import time
 
 import torch
@@ -35,7 +36,7 @@ except OSError as error:
 torch.save(pinn, "results/data/pinn.pt")
 torch.save(train_result, "results/data/train_result.pt")
 torch.save(exec_time, "results/data/exec_time.pt")
-# shutil.copy("params.py", "results/result.txt")
+shutil.copy("params.py", "results/result.txt")
 with open("results/result.txt", "a") as file:
         file.write(f"\n")
         file.write(f"\nTime = {exec_time}\n")

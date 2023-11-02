@@ -2,7 +2,6 @@ import math
 from matplotlib import pyplot as plt
 import torch
 from src.exact import exact_solution
-from src.loss import shift
 
 from src.plot_utils import *
 from params import *
@@ -15,85 +14,128 @@ train_result: TrainResult = torch.load("results/data/train_result.pt")
 x_domain = [0.0, LENGTH]
 t_domain = [0.0, TOTAL_TIME]
 x_init_raw = torch.linspace(0.0, 1.0, steps=N_POINTS_INIT)
+loss_vector = train_result.loss
+vm_norm_vector = train_result.vm_norm
+l2_norm_vector = train_result.l2_norm
 
-def decreasing_values(y):
-    decreasing=y
-    for i in range(2, len(y)) :
-      decreasing[i]=min(y[i],decreasing[i-1])
-    return decreasing
+# Colors
+vpinn_c = "#0B33B5"
+analytical_c = "#D00000"
+loss_c = "darkorange"
+norm_c = "#58106a"
+error_c = "darkgreen"
 
-average_loss = running_average(loss_values, window=100)
-fig, ax = plt.subplots(figsize=(8, 6), dpi=100)
-ax.set_title("Loss function (runnig average)")
-ax.set_xlabel("Epoch")
-ax.set_ylabel("Loss")
-ax.plot(average_loss)
-ax.set_yscale('log')
-fig.savefig("results/loss.png")
-fig.savefig("results/loss.pdf")
+##########################################################################
+vec = train_result.loss
+best = math.inf
+best_vec = [1.]
+pos_vec = [1.]
+epochs_vector = np.array(range(1, EPOCHS + 1))
 
-x_raw = torch.linspace(x_domain[0], x_domain[1], steps=1000, requires_grad=True)
-t_raw = torch.linspace(t_domain[0], t_domain[1], steps=1000, requires_grad=True)
-grids = torch.meshgrid(x_raw, t_raw, indexing="ij")
-x = grids[0].flatten().reshape(-1, 1)
-t = grids[1].flatten().reshape(-1, 1)
-z = f(pinn, x, t)
-color = plot_color(z, x, t, 1000, 1000)
-color.savefig("results/rvpinn.png")
-color.savefig("results/rvpinn.pdf")
 
-x_raw = torch.linspace(x_domain[0], x_domain[1], steps=1000, requires_grad=True)
-t_raw = torch.linspace(t_domain[0], t_domain[1], steps=1000, requires_grad=True)
-grids = torch.meshgrid(x_raw, t_raw, indexing="ij")
-x = grids[0].flatten().reshape(-1, 1)
-t = grids[1].flatten().reshape(-1, 1)
-z = exact_solution(x,t, EPSILON)
-color = plot_color(z, x, t, 1000, 1000)
-color.savefig("results/exact.png")
-color.savefig("results/exact.pdf")
+for n in range(EPOCHS):
+  if vec[n]<best and vec[n]>0:
+    best_vec.append(vec[n])
+    pos_vec.append(n+1)
+    best = 1*vec[n]
 
-x_init = torch.linspace(0.0, 1.0, steps=1000)
-x_init = x_init*LENGTH
-pinn_init = f(pinn, torch.zeros_like(x_init_raw).reshape(-1,1)+0.5, x_init_raw.reshape(-1, 1)) #x=0.5, t between (-1,1)
-fig, ax = plt.subplots(figsize=(14, 10), dpi=100)
-ax.set_title("Solution profile at x=0.5")
+pos_vec = np.array(pos_vec, dtype=int) - 1
+##########################################################################
+
+##########################################################################
+# Loss and error
+##########################################################################
+fig, ax = plt.subplots()
+loss_label = r"$\frac{\sqrt{{\cal L \rm}_r^\phi(u_\theta)}}{\|u\|_U}$"
+error_label = r"$\frac{\|u - u_\theta\|_U}{\|u\|_U}$"
+ax.loglog(pos_vec, np.sqrt(loss_vector[pos_vec]) / train_result.vm_exact_norm, '-',linewidth = 1.5, label=loss_label, color=loss_c)
+ax.loglog(pos_vec, vm_norm_vector[pos_vec], '--', linewidth=1.5, label=error_label, color=error_c)
+ax.legend(loc='lower left', labelcolor='linecolor')
+ax.set_xlabel(r" Iterations ")
+ax.set_ylabel(r" Error (estimates)")
+fig.savefig("results/error-and-loss.png")
+fig.savefig("results/error-and-loss.pdf")
+
+##########################################################################
+# H1 error
+##########################################################################
+fig, ax = plt.subplots()
+ax.plot(vm_norm_vector , '-',linewidth = 1.5, label=loss_label, color=loss_c)
+ax.set_xlabel(r" Iterations ")
+ax.set_ylabel(r" H1 error")
+fig.savefig("results/h1.png")
+fig.savefig("results/h1.pdf")
+
+##########################################################################
+# L2 error
+##########################################################################
+fig, ax = plt.subplots()
+ax.plot(vm_norm_vector , '-',linewidth = 1.5, label=loss_label, color=loss_c)
+ax.set_xlabel(r" Iterations ")
+ax.set_ylabel(r" L2 error")
+fig.savefig("results/l2.png")
+fig.savefig("results/l2.pdf")
+
+# Plot the solution in a "dense" mesh
+n_x = torch.linspace(0.0, 1.0, steps=PLOT_POINTS)
+n_y = torch.linspace(0.0, 1.0, steps=PLOT_POINTS)
+n_x, n_y = torch.meshgrid(n_x, n_y)
+n_x_reshaped = n_x.reshape(-1, 1).requires_grad_(True)
+n_y_reshaped = n_y.reshape(-1, 1).requires_grad_(True)
+
+z = f(pinn, n_x_reshaped, n_y_reshaped).detach().reshape(PLOT_POINTS, PLOT_POINTS)
+fig, ax = plt.subplots()
+c = ax.pcolor(n_x, n_y, z)
+ax.set_title("PINN solution, eps={}".format(EPSILON))
 ax.set_xlabel("x")
-ax.set_ylabel("u")
-ax.plot(x_init_raw, pinn_init.flatten().detach(), label="PINN solution")
+ax.set_ylabel("y")
+fig.colorbar(c, ax=ax)
+fig.savefig(f"results/solution")
+
+# Exact solution
+z_exact = exact_solution(n_x, n_y, EPSILON)
+fig, ax = plt.subplots()
+c = ax.pcolor(n_x, n_y, z_exact)
+ax.set_title("Exact solution, eps={}".format(EPSILON))
+ax.set_xlabel("x")
+ax.set_ylabel("y")
+fig.colorbar(c, ax=ax)
+fig.savefig(f"results/exact")
+
+# Difference
+z_exact = exact_solution(n_x, n_y, EPSILON)
+fig, ax = plt.subplots()
+c = ax.pcolor(n_x, n_y, z_exact - z)
+ax.set_title("Exact - PINN, eps={}".format(EPSILON))
+ax.set_xlabel("x")
+ax.set_ylabel("y")
+fig.colorbar(c, ax=ax)
+fig.savefig(f"results/difference")
+
+# Initial solution
+n_x = torch.linspace(0.0, 1.0, steps=PLOT_POINTS)
+n_t = torch.zeros_like(n_x)
+z_pinn = f(pinn, n_x.reshape(-1, 1), n_t.reshape(-1, 1)).detach().reshape(-1)
+z_exact = torch.sin(n_x * math.pi)
+fig, ax = plt.subplots()
+ax.set_title("Initial condition")
+ax.plot(n_x, z_pinn, "-", label="PINN")
+ax.plot(n_x, z_exact, "--", label="Exact")
 ax.legend()
-fig.savefig("results/profile.png")
-fig.savefig("results/profile.pdf")
+ax.set_xlabel("x")
+fig.savefig(f"results/initial")
 
-from IPython.display import HTML
-ani = plot_solution(pinn, x, t)
-ani.save("results/animation.mp4")
-
-x_raw = torch.linspace(x_domain[0], x_domain[1], steps=100, requires_grad=True)
-t_raw = torch.linspace(t_domain[0], t_domain[1], steps=100, requires_grad=True)
-grids = torch.meshgrid(x_raw, t_raw, indexing="ij")
-x = grids[0].flatten().reshape(-1, 1)
-t = grids[1].flatten().reshape(-1, 1)
-z = f(pinn, x, t)+shift(x,t)-exact_solution(x,t, EPSILON)
-exact = exact_solution(x,t, EPSILON) #the values are (0,1)
-exact_norm = exact.pow(2).sum()/10000 #the values are (0,1) we average them
-z_norm = z.pow(2).sum()/10000
-z1 = EPSILON*torch.sqrt(z/exact_norm)
-l2_norm = math.sqrt(z_norm)/math.sqrt(exact_norm)
-print(f'l2_z_norm:{z_norm:.5f}')
-print(f'l2_exact_norm:{exact_norm:.5f}')
-print(f'z_norm/l2_norm:{z_norm/l2_norm:.5f}')
-color = plot_color(z1.cpu(), x.cpu(), t.cpu(), 100, 100)
-color.savefig("results/error.png")
-color.savefig("results/error.pdf")
-
-decreasing_loss = decreasing_values(loss_values)
-fig, ax = plt.subplots(figsize=(8, 6), dpi=100)
-ax.set_title("Loss function")
-ax.set_xlabel("Epoch")
-ax.set_ylabel("Loss")
-ax.plot(decreasing_loss)
-ax.set_yscale('log')
-fig.savefig("results/loss.png")
-fig.savefig("results/loss.pdf")
+# Slice along t axis
+n_t = torch.linspace(0.0, 1.0, steps=PLOT_POINTS)
+n_x = torch.full_like(n_t, 0.5)
+z_pinn = f(pinn, n_x.reshape(-1, 1), n_t.reshape(-1, 1)).detach().reshape(-1)
+z_exact = exact_solution(n_x, n_t, EPSILON)
+fig, ax = plt.subplots()
+ax.set_title("Slice along t axis at x=0.5, eps={}".format(EPSILON))
+ax.plot(n_t, z_pinn, "--", label="PINN")
+ax.plot(n_t, z_exact, label="Exact")
+ax.legend()
+ax.set_xlabel("t")
+fig.savefig(f"results/x_slice")
 
 plt.show()

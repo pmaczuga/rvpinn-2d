@@ -61,15 +61,15 @@ class Error:
        self.vm_exact_norm = self._vm_exact_norm()
 
     def l2_norm(self, pinn: PINN) -> float:
-        size = self.x.numel
+        size = self.x.numel()
         diff = f(pinn, self.x, self.t)-exact_solution(self.x, self.t, self.epsilon)
         l2_z_norm = diff.pow(2).sum()/size
         l2_norm = math.sqrt(l2_z_norm) / self.l2_exact_norm
         return l2_norm
     
     def _l2_exact_norm(self) -> float:
-        size = self.x.numel
-        exact = exact_solution(self.x, self.t)
+        size = self.x.numel()
+        exact = exact_solution(self.x, self.t, self.epsilon)
         l2_exact_norm = exact.pow(2).sum()/size
         return math.sqrt(l2_exact_norm)
 
@@ -77,7 +77,7 @@ class Error:
         epsilon = self.epsilon
         x = self.x
         t = self.t
-        size = x.numel
+        size = x.numel()
  
         dz_dx = dfdx(pinn, x, t, order=1)
         exact_dx = exact_solution_dx(x, t, epsilon)
@@ -85,7 +85,7 @@ class Error:
         diff_dx_int = diff_dx.pow(2).sum()/size
 
         dz_dt = dfdt(pinn, x, t, order=1)
-        exact_dt = exact_solution_dt(x,t)
+        exact_dt = exact_solution_dt(x,t, self.epsilon)
         diff_dt = dz_dt - exact_dt
         diff_dt_int = diff_dt.pow(2).sum()/size
 
@@ -95,7 +95,7 @@ class Error:
         return vm_norm
 
     def _vm_exact_norm(self) -> float:
-        size = self.x.numel
+        size = self.x.numel()
         exact_dx = exact_solution_dx(self.x, self.t, self.epsilon)
         exact_dx_norm = exact_dx.pow(2).sum()/size
         exact_dt = exact_solution_dt(self.x, self.t, self.epsilon)
