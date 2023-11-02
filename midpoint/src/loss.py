@@ -14,7 +14,7 @@ class Loss:
        self.n_points_t = n_points_t
        self.n_test_x = n_test_x
        self.n_test_y = n_test_y
-       self.G = gramm_const(epsilon, n_test_x, n_points_t, device)
+       self.G = gramm_const(1.0, n_test_x, n_points_t, device)
        self.x, self.t = middle_points((0,1), (0,1), n_points_x, n_points_t, True, device)
 
     def __call__(self, pinn: PINN) -> torch.Tensor:
@@ -22,15 +22,14 @@ class Loss:
         t = self.t
         epsilon = self.epsilon
         device = x.device
-        dx = 1.0 / x.numel()
-        dt = 1.0 / t.numel()
-
-        # norm is (v,v)_VM = epsilon (dv/dx,dvdx)+epsilon (dv/dy,dvdy)
+        dx = 1.0 / self.n_points_x
+        dt = 1.0 / self.n_points_t
 
         final_loss = torch.tensor(0.0)
         index = 0
         dpinn_dt = dfdt(pinn, x, t, order=1)
         dpinn_dx = dfdx(pinn, x, t, order=1)
+        rhs = self._rhs(x, t)
         for i in range(0, self.n_test_x):
             n = i + 1
             test_x = torch.sin(n*math.pi*x)
@@ -44,14 +43,19 @@ class Loss:
                 test = test_x.mul(test_t)
                 loss_tmp_weak = \
                     + epsilon * dpinn_dt * test_dt * dx * dt \
-                    + epsilon * dpinn_dx * test_dx *  dx * dt \
-                    + dpinn_dx * test * dx * dt
+                    + epsilon * dpinn_dx * test_dx * dx * dt \
+                    - rhs * test * dx * dt
                 final_loss += loss_tmp_weak.sum().pow(2) * self.G[index]
                 index += 1
 
         return final_loss
+    
+    def _rhs(self, x, y):
+        return -4*torch.pi**2*torch.exp(torch.pi*(x-2*y))*torch.sin(torch.pi*(x-2*y))
 
 class Error:
+    # vm_norm is (v,v)_VM = epsilon (dv/dx,dvdx)+epsilon (dv/dy,dvdy)
+
     def __init__(self, epsilon: float, n_points_x: int, n_points_t: int, device: torch.device):
        self.epsilon = epsilon
        self.n_points_x = n_points_x
@@ -85,7 +89,7 @@ class Error:
         diff_dx_int = diff_dx.pow(2).sum()/size
 
         dz_dt = dfdt(pinn, x, t, order=1)
-        exact_dt = exact_solution_dt(x,t, self.epsilon)
+        exact_dt = exact_solution_dy(x,t, self.epsilon)
         diff_dt = dz_dt - exact_dt
         diff_dt_int = diff_dt.pow(2).sum()/size
 
@@ -98,7 +102,7 @@ class Error:
         size = self.x.numel()
         exact_dx = exact_solution_dx(self.x, self.t, self.epsilon)
         exact_dx_norm = exact_dx.pow(2).sum()/size
-        exact_dt = exact_solution_dt(self.x, self.t, self.epsilon)
+        exact_dt = exact_solution_dy(self.x, self.t, self.epsilon)
         exact_dt_norm = exact_dt.pow(2).sum()/size
         vm_exact_norm = self.epsilon*(exact_dx_norm + exact_dt_norm)
         return math.sqrt(vm_exact_norm)

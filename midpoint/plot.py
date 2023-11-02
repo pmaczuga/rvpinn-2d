@@ -13,7 +13,7 @@ exec_time = torch.load("results/data/exec_time.pt")
 train_result: TrainResult = torch.load("results/data/train_result.pt")
 x_domain = [0.0, LENGTH]
 t_domain = [0.0, TOTAL_TIME]
-x_init_raw = torch.linspace(0.0, 1.0, steps=N_POINTS_INIT)
+x_init_raw = torch.linspace(0.0, 1.0, steps=1000)
 loss_vector = train_result.loss
 vm_norm_vector = train_result.vm_norm
 l2_norm_vector = train_result.l2_norm
