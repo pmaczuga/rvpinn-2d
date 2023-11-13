@@ -119,7 +119,7 @@ def train_model(
             loss_values.append(loss.item())
             l2_norm.append(error_calc.l2_norm(pinn))
             vm_norm.append(error_calc.vm_norm(pinn))
-            if (epoch + 1) % 10 == 0:
+            if (epoch + 1) % 100 == 0:
                 print(f"Epoch: {epoch + 1} - Loss: {float(loss):>7f}")
 
         except KeyboardInterrupt:

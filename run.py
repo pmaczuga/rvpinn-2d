@@ -9,16 +9,15 @@ from torch import nn
 from params import *
 from src.pinn_core import *
 from src.loss import Loss, Error
+import src.old_loss
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-device
-
-def sin_act(x):
-    return torch.sin(x)
+print(f"Running on: {device}")
 
 pinn = PINN(LAYERS, NEURONS_PER_LAYER, pinning=True, act=nn.Tanh()).to(device)
 
-loss_fn = Loss(epsilon=EPSILON, n_points_x=N_POINTS_X, n_points_t=N_POINTS_T, n_test_x=20, n_test_y=20, device=device)
+loss_fn = Loss(epsilon=EPSILON, n_points_x=N_POINTS_X, n_points_t=N_POINTS_T, n_test_x=N_TEST_X, n_test_t=N_TEST_T, device=device)
+# old_loss_fn = src.old_loss.Loss(epsilon=EPSILON, n_points_x=N_POINTS_X, n_points_t=N_POINTS_T, n_test_x=N_TEST_X, n_test_y=N_TEST_T, device=device)
 error_calc = Error(epsilon=EPSILON, n_points_x=N_POINTS_X, n_points_t=N_POINTS_T, device=device)
 
 start_time = time.time()

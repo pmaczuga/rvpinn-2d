@@ -1,14 +1,16 @@
 import math
 from matplotlib import pyplot as plt
+import matplotlib
 import torch
 from src.exact import exact_solution
+import mpltools.annotation as mpl
 
 from src.plot_utils import *
 from params import *
 
+matplotlib.rcParams['text.latex.preamble'] = [r'\usepackage{amsmath}']
 
 pinn = torch.load("results/data/pinn.pt")
-loss_values = torch.load("results/data/loss_values.pt")
 exec_time = torch.load("results/data/exec_time.pt")
 train_result: TrainResult = torch.load("results/data/train_result.pt")
 x_domain = [0.0, LENGTH]
@@ -112,30 +114,34 @@ ax.set_ylabel("y")
 fig.colorbar(c, ax=ax)
 fig.savefig(f"results/difference")
 
-# Initial solution
-n_x = torch.linspace(0.0, 1.0, steps=PLOT_POINTS)
-n_t = torch.zeros_like(n_x)
-z_pinn = f(pinn, n_x.reshape(-1, 1), n_t.reshape(-1, 1)).detach().reshape(-1)
-z_exact = torch.sin(n_x * math.pi)
-fig, ax = plt.subplots()
-ax.set_title("Initial condition")
-ax.plot(n_x, z_pinn, "-", label="PINN")
-ax.plot(n_x, z_exact, "--", label="Exact")
-ax.legend()
-ax.set_xlabel("x")
-fig.savefig(f"results/initial")
 
 # Slice along t axis
 n_t = torch.linspace(0.0, 1.0, steps=PLOT_POINTS)
-n_x = torch.full_like(n_t, 0.5)
+n_x = torch.full_like(n_t, 0.25)
 z_pinn = f(pinn, n_x.reshape(-1, 1), n_t.reshape(-1, 1)).detach().reshape(-1)
 z_exact = exact_solution(n_x, n_t, EPSILON)
 fig, ax = plt.subplots()
-ax.set_title("Slice along t axis at x=0.5, eps={}".format(EPSILON))
+ax.set_title("Slice along t axis at x=0.25, eps={}".format(EPSILON))
 ax.plot(n_t, z_pinn, "--", label="PINN")
 ax.plot(n_t, z_exact, label="Exact")
 ax.legend()
 ax.set_xlabel("t")
 fig.savefig(f"results/x_slice")
+
+##########################################################################
+# Error to sqrt(loss)
+##########################################################################
+fig, ax = plt.subplots()
+level = pos_vec[int(np.floor(len(pos_vec) * 0.2))]
+ax.loglog(np.sqrt(loss_vector[pos_vec]) / train_result.vm_exact_norm, train_result.vm_norm[pos_vec], color=error_c, label="Error")
+mpl.slope_marker((loss_vector[level]**(1/2) / train_result.vm_exact_norm, 0.8*train_result.vm_norm[level]), (1, 1), \
+ax=ax, invert=False, poly_kwargs={'facecolor': 'white',
+                                    'edgecolor':'black'})
+# ax.loglog(np.sqrt(loss_vector[pos_vec]), np.sqrt(loss_vector[pos_vec]), color=loss_c, label="$y=x$")
+ax.set_xlabel(r"Relative $\sqrt{Loss}$")
+ax.set_ylabel(r"Relative Error ")
+# ax.set_title(r"Error to $\sqrt{Loss}$")
+fig.savefig("results/error-to-sqrt-loss.png")
+fig.savefig("results/error-to-sqrt-loss.pdf")
 
 plt.show()

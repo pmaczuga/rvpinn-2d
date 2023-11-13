@@ -2,19 +2,16 @@ import torch
 
 
 def exact_solution(x, y, epsilon) -> torch.Tensor:
-  exp = -torch.exp(torch.pi*(x -  2*y))
-  sins = torch.sin(2*torch.pi*x) * torch.sin(torch.pi*y)
-  res = exp * sins
+  sins = torch.sin(2*torch.pi*x) * torch.sin(2.0*torch.pi*y)
+  res = sins
   return res
 
 def exact_solution_dx(x, y, epsilon) -> torch.Tensor:
-  exp = -torch.pi * torch.exp(torch.pi*(x-2*y)) * torch.sin(torch.pi * y)
-  sins = torch.sin(2*torch.pi*x) + 2*torch.cos(2*torch.pi*x)
-  res = exp * sins
+  sins = 2*torch.pi*torch.cos(2*torch.pi*x) * torch.sin(2.0*torch.pi*y)
+  res = sins
   return res
 
 def exact_solution_dy(x, y, epsilon) -> torch.Tensor:
-  exp = -torch.pi * torch.exp(torch.pi*(x-2*y)) * torch.sin(2 * torch.pi * x)
-  sins = torch.cos(torch.pi*y) - 2*torch.sin(torch.pi*y)
-  res = exp * sins
+  sins = 2*torch.pi*torch.sin(2*torch.pi*x) * torch.cos(2.0*torch.pi*y)
+  res = sins
   return res

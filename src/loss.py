@@ -3,19 +3,21 @@ import math
 import sys
 import torch
 from src.points import middle_points
-from src.test_func import gramm_const
+from src.test_func import gramm_const, test_t, test_t_dt, test_x, test_x_dx
 from src.pinn_core import *
 from src.exact import *
 
 class Loss:
-    def __init__(self, epsilon: float, n_points_x: int, n_points_t: int, n_test_x: int, n_test_y: int, device: torch.device):
+    def __init__(self, epsilon: float, n_points_x: int, n_points_t: int, n_test_x: int, n_test_t: int, device: torch.device):
        self.epsilon = epsilon
        self.n_points_x = n_points_x
        self.n_points_t = n_points_t
        self.n_test_x = n_test_x
-       self.n_test_y = n_test_y
-       self.G = gramm_const(1.0, n_test_x, n_points_t, device)
+       self.n_test_t = n_test_t
+       self.G = gramm_const(1.0, n_test_x, n_test_t, device)
        self.x, self.t = middle_points((0,1), (0,1), n_points_x, n_points_t, True, device)
+       self.n = torch.arange(1, self.n_test_x+1).to(device)
+       self.m = torch.arange(1, self.n_test_t+1).to(device)
 
     def __call__(self, pinn: PINN) -> torch.Tensor:
         x = self.x
@@ -25,33 +27,34 @@ class Loss:
         dx = 1.0 / self.n_points_x
         dt = 1.0 / self.n_points_t
 
-        final_loss = torch.tensor(0.0)
-        index = 0
-        dpinn_dt = dfdt(pinn, x, t, order=1)
-        dpinn_dx = dfdx(pinn, x, t, order=1)
+        dpinn_dx = dfdx(pinn, x, t, order=1).reshape(self.n_points_x, self.n_points_t)
+        dpinn_dt = dfdt(pinn, x, t, order=1).reshape(self.n_points_x, self.n_points_t)
         rhs = self._rhs(x, t)
-        for i in range(0, self.n_test_x):
-            n = i + 1
-            test_x = torch.sin(n*math.pi*x)
-            test_x_dx = n * math.pi * torch.cos(n*math.pi*x)
-            for j in range(0, self.n_points_t):
-                m = j + 1
-                test_t = torch.sin(m*math.pi*t)
-                test_t_dt = m * math.pi * torch.cos(m*math.pi*t)
-                test_dt = test_x.mul(test_t_dt)
-                test_dx = test_t.mul(test_x_dx)
-                test = test_x.mul(test_t)
-                loss_tmp_weak = \
-                    + epsilon * dpinn_dt * test_dt * dx * dt \
-                    + epsilon * dpinn_dx * test_dx * dx * dt \
-                    - rhs * test * dx * dt
-                final_loss += loss_tmp_weak.sum().pow(2) * self.G[index]
-                index += 1
 
-        return final_loss
+        x_times_n = torch.einsum("xt,n->xtn", x.reshape(self.n_points_x, self.n_points_t), self.n)
+        test_x = torch.sin(math.pi*x_times_n)
+        t_times_m = torch.einsum("xt,m->xtm", t.reshape(self.n_points_x, self.n_points_t), self.m)
+        test_t = torch.sin(math.pi * t_times_m)
+        test = torch.einsum("xtn,xtm->xtnm", test_x, test_t)
+        test_x_dx = torch.pi * torch.einsum("n,xtn->xtn", self.n, torch.cos(torch.pi*x_times_n))
+        test_dx = torch.einsum("xtn,xtm->xtnm", test_x_dx, test_t)
+        test_t_dt = torch.pi * torch.einsum("m,xtm->xtm", self.m, torch.cos(torch.pi*t_times_m))
+        test_dt = torch.einsum("xtn,xtm->xtnm", test_x, test_t_dt)
+
+        loss1 = dx * dt * epsilon * torch.einsum("xt,xtnm->nm", dpinn_dx, test_dx)
+        loss2 = dx * dt * epsilon * torch.einsum("xt,xtnm->nm", dpinn_dt, test_dt)
+        loss3 = dx * dt * torch.einsum("xt,xtnm->nm", rhs, test)
+        loss = loss1 + loss2 - loss3
+        loss = loss**2 * self.G
+
+        return loss.sum()
     
-    def _rhs(self, x, y):
-        return -4*torch.pi**2*torch.exp(torch.pi*(x-2*y))*torch.sin(torch.pi*(x-2*y))
+    def _rhs(self, x, t):
+        # rhs = -4*torch.pi**2*torch.exp(torch.pi*(x-2*y))*torch.sin(torch.pi*(x-2*y))
+        f1 = -4.0*torch.pi*torch.pi*torch.sin(2.0*torch.pi*x)*torch.sin(2.0*torch.pi*t)
+        f2 = -4.0*torch.pi*torch.pi*torch.sin(2.0*torch.pi*x)*torch.sin(2.0*torch.pi*t)
+        rhs = -f1-f2 # -Delta u = f so f = -Delta u, 0 on boundary the residual will be res = Delta u+f
+        return rhs.reshape(self.n_points_x, self.n_points_t)
 
 class Error:
     # vm_norm is (v,v)_VM = epsilon (dv/dx,dvdx)+epsilon (dv/dy,dvdy)
