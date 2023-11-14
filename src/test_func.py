@@ -16,7 +16,7 @@ def gramm_const(epsilon: float, n_test_x: int, n_test_y: int, device: torch.devi
             constant_full = constant_1a*constant_1b + constant_2a*constant_2b
             constant = 1.0 / constant_full
             constants[i, j] = constant
-    return constants
+    return constants.to(device)
 
 def test_x(x: torch.Tensor, N: int) -> torch.Tensor:
     x = x.reshape(-1, 1)
