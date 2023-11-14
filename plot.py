@@ -1,20 +1,29 @@
+import argparse
 import math
 from matplotlib import pyplot as plt
 import matplotlib
 import torch
 from src.exact import exact_solution
 import mpltools.annotation as mpl
+from src.params import Params
 
 from src.plot_utils import *
-from params import *
 
 matplotlib.rcParams['text.latex.preamble'] = [r'\usepackage{amsmath}']
 
-pinn = torch.load("results/data/pinn.pt")
-exec_time = torch.load("results/data/exec_time.pt")
-train_result: TrainResult = torch.load("results/data/train_result.pt")
-x_domain = [0.0, LENGTH]
-t_domain = [0.0, TOTAL_TIME]
+parser = argparse.ArgumentParser(
+                    prog='RVPINN',
+                    description='Runs the training of RVPINN')
+parser.add_argument('--tag', type=str)
+args = parser.parse_args()
+tag = args.tag if args.tag is not None else Params().tag
+params = Params(f"results/{tag}/params.ini")
+
+pinn = torch.load(f"results/{tag}/data/pinn.pt")
+exec_time = torch.load(f"results/{tag}/data/exec_time.pt")
+train_result: TrainResult = torch.load(f"results/{tag}/data/train_result.pt")
+x_domain = [0.0, 1.0]
+t_domain = [0.0, 1.0]
 x_init_raw = torch.linspace(0.0, 1.0, steps=1000)
 loss_vector = train_result.loss
 vm_norm_vector = train_result.vm_norm
@@ -27,15 +36,17 @@ loss_c = "darkorange"
 norm_c = "#58106a"
 error_c = "darkgreen"
 
+PLOT_POINTS = 1000
+
 ##########################################################################
 vec = train_result.loss
 best = math.inf
 best_vec = [1.]
 pos_vec = [1.]
-epochs_vector = np.array(range(1, EPOCHS + 1))
+epochs_vector = np.array(range(1, params.epochs + 1))
 
 
-for n in range(EPOCHS):
+for n in range(params.epochs):
   if vec[n]<best and vec[n]>0:
     best_vec.append(vec[n])
     pos_vec.append(n+1)
@@ -88,27 +99,27 @@ n_y_reshaped = n_y.reshape(-1, 1).requires_grad_(True)
 z = f(pinn, n_x_reshaped, n_y_reshaped).detach().reshape(PLOT_POINTS, PLOT_POINTS)
 fig, ax = plt.subplots()
 c = ax.pcolor(n_x, n_y, z)
-ax.set_title("PINN solution, eps={}".format(EPSILON))
+ax.set_title("PINN solution, eps={}".format(params.epsilon))
 ax.set_xlabel("x")
 ax.set_ylabel("y")
 fig.colorbar(c, ax=ax)
 fig.savefig(f"results/solution")
 
 # Exact solution
-z_exact = exact_solution(n_x, n_y, EPSILON)
+z_exact = exact_solution(n_x, n_y, params.epsilon)
 fig, ax = plt.subplots()
 c = ax.pcolor(n_x, n_y, z_exact)
-ax.set_title("Exact solution, eps={}".format(EPSILON))
+ax.set_title("Exact solution, eps={}".format(params.epsilon))
 ax.set_xlabel("x")
 ax.set_ylabel("y")
 fig.colorbar(c, ax=ax)
 fig.savefig(f"results/exact")
 
 # Difference
-z_exact = exact_solution(n_x, n_y, EPSILON)
+z_exact = exact_solution(n_x, n_y, params.epsilon)
 fig, ax = plt.subplots()
 c = ax.pcolor(n_x, n_y, z_exact - z)
-ax.set_title("Exact - PINN, eps={}".format(EPSILON))
+ax.set_title("Exact - PINN, eps={}".format(params.epsilon))
 ax.set_xlabel("x")
 ax.set_ylabel("y")
 fig.colorbar(c, ax=ax)
@@ -119,9 +130,9 @@ fig.savefig(f"results/difference")
 n_t = torch.linspace(0.0, 1.0, steps=PLOT_POINTS)
 n_x = torch.full_like(n_t, 0.25)
 z_pinn = f(pinn, n_x.reshape(-1, 1), n_t.reshape(-1, 1)).detach().reshape(-1)
-z_exact = exact_solution(n_x, n_t, EPSILON)
+z_exact = exact_solution(n_x, n_t, params.epsilon)
 fig, ax = plt.subplots()
-ax.set_title("Slice along t axis at x=0.25, eps={}".format(EPSILON))
+ax.set_title("Slice along t axis at x=0.25, eps={}".format(params.epsilon))
 ax.plot(n_t, z_pinn, "--", label="PINN")
 ax.plot(n_t, z_exact, label="Exact")
 ax.legend()

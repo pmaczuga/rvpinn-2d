@@ -50,10 +50,9 @@ class Loss:
         return loss.sum()
     
     def _rhs(self, x, t):
-        # rhs = -4*torch.pi**2*torch.exp(torch.pi*(x-2*y))*torch.sin(torch.pi*(x-2*y))
-        f1 = -4.0*torch.pi*torch.pi*torch.sin(2.0*torch.pi*x)*torch.sin(2.0*torch.pi*t)
-        f2 = -4.0*torch.pi*torch.pi*torch.sin(2.0*torch.pi*x)*torch.sin(2.0*torch.pi*t)
-        rhs = -f1-f2 # -Delta u = f so f = -Delta u, 0 on boundary the residual will be res = Delta u+f
+        f1 = torch.pi**2 * torch.exp(torch.pi*(x - 2*t)) * torch.sin(2*torch.pi*x)*(4*torch.cos(torch.pi*t) - 3*torch.sin(torch.pi*t))
+        f2 = torch.pi**2 * torch.exp(torch.pi*(x - 2*t)) * torch.sin(torch.pi*t)*(4*torch.cos(2*torch.pi*x) - 3*torch.sin(2*torch.pi*x))
+        rhs = -f1-f2 # -Delta u = f so f = -Delta u, 0 on boundary, the residual will be res = Delta u+f
         return rhs.reshape(self.n_points_x, self.n_points_t)
 
 class Error:
