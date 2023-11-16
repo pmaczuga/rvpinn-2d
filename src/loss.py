@@ -27,6 +27,7 @@ class Loss:
        self.n = torch.arange(1, self.n_test_x+1).to(device)
        self.m = torch.arange(1, self.n_test_t+1).to(device)
        self.exact = exact
+       self.equation = equation
 
     def __call__(self, pinn: PINN) -> torch.Tensor:
         x = self.x
@@ -38,7 +39,7 @@ class Loss:
 
         dpinn_dx = dfdx(pinn, x, t, order=1).reshape(self.n_points_x, self.n_points_t)
         dpinn_dt = dfdt(pinn, x, t, order=1).reshape(self.n_points_x, self.n_points_t)
-        rhs = self._rhs(x, t)
+        rhs = self._rhs(x, t, self.equation)
 
         x_times_n = torch.einsum("xt,n->xtn", x.reshape(self.n_points_x, self.n_points_t), self.n)
         test_x = torch.sin(math.pi*x_times_n)
@@ -62,11 +63,13 @@ class Loss:
         if equation == "sins":
             f1 = -4.0*torch.pi*torch.pi*torch.sin(2.0*torch.pi*x)*torch.sin(2.0*torch.pi*t)
             f2 = -4.0*torch.pi*torch.pi*torch.sin(2.0*torch.pi*x)*torch.sin(2.0*torch.pi*t)
-            return -f1-f2 # -Delta u = f so f = -Delta u, 0 on boundary the residual will be res = Delta u+f
+            rhs = -f1-f2 # -Delta u = f so f = -Delta u, 0 on boundary the residual will be res = Delta u+f
+            return rhs.reshape(self.n_points_x, self.n_points_t)
         if equation == "exp-sins":
             f1 = self.exact.dx2(x, t)
             f2 = self.exact.dt2(x, t)
-            return -f1-f2
+            rhs = -f1-f2
+            return rhs.reshape(self.n_points_x, self.n_points_t)
         raise ValueError(f"Invalid equation: {equation}")
 
 
@@ -84,14 +87,14 @@ class Error:
 
     def l2_norm(self, pinn: PINN) -> float:
         size = self.x.numel()
-        diff = f(pinn, self.x, self.t)-self.exact(self.x, self.t, self.epsilon)
+        diff = f(pinn, self.x, self.t)-self.exact(self.x, self.t)
         l2_z_norm = diff.pow(2).sum()/size
         l2_norm = math.sqrt(l2_z_norm) / self.l2_exact_norm
         return l2_norm
     
     def _l2_exact_norm(self) -> float:
         size = self.x.numel()
-        exact = self.exact(self.x, self.t, self.epsilon)
+        exact = self.exact(self.x, self.t)
         l2_exact_norm = exact.pow(2).sum()/size
         return math.sqrt(l2_exact_norm)
 
@@ -102,12 +105,12 @@ class Error:
         size = x.numel()
  
         dz_dx = dfdx(pinn, x, t, order=1)
-        exact_dx = self.exact.dx(x, t, epsilon)
+        exact_dx = self.exact.dx(x, t)
         diff_dx = dz_dx - exact_dx
         diff_dx_int = diff_dx.pow(2).sum()/size
 
         dz_dt = dfdt(pinn, x, t, order=1)
-        exact_dt = self.exact.dt(x,t, self.epsilon)
+        exact_dt = self.exact.dt(x,t)
         diff_dt = dz_dt - exact_dt
         diff_dt_int = diff_dt.pow(2).sum()/size
 
@@ -118,9 +121,9 @@ class Error:
 
     def _vm_exact_norm(self) -> float:
         size = self.x.numel()
-        exact_dx = self.exact.dx(self.x, self.t, self.epsilon)
+        exact_dx = self.exact.dx(self.x, self.t)
         exact_dx_norm = exact_dx.pow(2).sum()/size
-        exact_dt = self.exact.dt(self.x, self.t, self.epsilon)
+        exact_dt = self.exact.dt(self.x, self.t)
         exact_dt_norm = exact_dt.pow(2).sum()/size
         vm_exact_norm = self.epsilon*(exact_dx_norm + exact_dt_norm)
         return math.sqrt(vm_exact_norm)

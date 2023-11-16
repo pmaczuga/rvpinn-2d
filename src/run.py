@@ -21,9 +21,9 @@ def run(p: Params, device: torch.device):
 
     pinn = PINN(p.layers, p.neurons_per_layer, pinning=True, act=nn.Tanh()).to(device)
 
-    loss_fn = Loss(epsilon=p.epsilon, n_points_x=p.n_points_x, n_points_t=p.n_points_t, n_test_x=p.n_test_x, n_test_t=p.n_test_t, device=device)
+    loss_fn = Loss(epsilon=p.epsilon, n_points_x=p.n_points_x, n_points_t=p.n_points_t, n_test_x=p.n_test_x, n_test_t=p.n_test_t, exact=exact, equation=p.equation, device=device)
     # old_loss_fn = src.old_loss.Loss(epsilon=EPSILON, n_points_x=N_POINTS_X, n_points_t=N_POINTS_T, n_test_x=N_TEST_X, n_test_y=N_TEST_T, device=device)
-    error_calc = Error(epsilon=p.epsilon, n_points_x=p.n_points_x_error, n_points_t=p.n_points_t_error, device=device)
+    error_calc = Error(epsilon=p.epsilon, n_points_x=p.n_points_x_error, n_points_t=p.n_points_t_error, exact=exact, device=device)
 
     start_time = time.time()
     train_result = train_model(pinn, loss_fn=loss_fn, error_calc=error_calc, learning_rate=p.learning_rate, max_epochs=p.epochs)
