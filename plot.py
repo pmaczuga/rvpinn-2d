@@ -3,7 +3,7 @@ import math
 from matplotlib import pyplot as plt
 import matplotlib
 import torch
-from src.exact import exact_solution
+from src.exact import ExpSinsExactSolution, SinsExactSolution
 import mpltools.annotation as mpl
 from src.params import Params
 
@@ -37,6 +37,11 @@ norm_c = "#58106a"
 error_c = "darkgreen"
 
 PLOT_POINTS = 1000
+
+if (params.equation == "sins"):
+  exact = SinsExactSolution()
+elif (params.equation == "exp-sins"):
+  exact = ExpSinsExactSolution()
 
 ##########################################################################
 vec = train_result.loss
@@ -106,7 +111,7 @@ fig.colorbar(c, ax=ax)
 fig.savefig(f"results/solution")
 
 # Exact solution
-z_exact = exact_solution(n_x, n_y, params.epsilon)
+z_exact = exact(n_x, n_y, params.epsilon)
 fig, ax = plt.subplots()
 c = ax.pcolor(n_x, n_y, z_exact)
 ax.set_title("Exact solution, eps={}".format(params.epsilon))
@@ -116,7 +121,7 @@ fig.colorbar(c, ax=ax)
 fig.savefig(f"results/exact")
 
 # Difference
-z_exact = exact_solution(n_x, n_y, params.epsilon)
+z_exact = exact(n_x, n_y, params.epsilon)
 fig, ax = plt.subplots()
 c = ax.pcolor(n_x, n_y, z_exact - z)
 ax.set_title("Exact - PINN, eps={}".format(params.epsilon))
