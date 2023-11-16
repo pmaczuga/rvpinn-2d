@@ -9,7 +9,7 @@ from src.params import Params
 
 from src.plot_utils import *
 
-matplotlib.rcParams['text.latex.preamble'] = [r'\usepackage{amsmath}']
+# matplotlib.rcParams['text.latex.preamble'] = [r'\usepackage{amsmath}']
 
 parser = argparse.ArgumentParser(
                     prog='RVPINN',
@@ -111,7 +111,7 @@ fig.colorbar(c, ax=ax)
 fig.savefig(f"results/solution")
 
 # Exact solution
-z_exact = exact(n_x, n_y, params.epsilon)
+z_exact = exact(n_x, n_y)
 fig, ax = plt.subplots()
 c = ax.pcolor(n_x, n_y, z_exact)
 ax.set_title("Exact solution, eps={}".format(params.epsilon))
@@ -121,7 +121,7 @@ fig.colorbar(c, ax=ax)
 fig.savefig(f"results/exact")
 
 # Difference
-z_exact = exact(n_x, n_y, params.epsilon)
+z_exact = exact(n_x, n_y)
 fig, ax = plt.subplots()
 c = ax.pcolor(n_x, n_y, z_exact - z)
 ax.set_title("Exact - PINN, eps={}".format(params.epsilon))
@@ -135,7 +135,7 @@ fig.savefig(f"results/difference")
 n_t = torch.linspace(0.0, 1.0, steps=PLOT_POINTS)
 n_x = torch.full_like(n_t, 0.25)
 z_pinn = f(pinn, n_x.reshape(-1, 1), n_t.reshape(-1, 1)).detach().reshape(-1)
-z_exact = exact_solution(n_x, n_t, params.epsilon)
+z_exact = exact(n_x, n_t)
 fig, ax = plt.subplots()
 ax.set_title("Slice along t axis at x=0.25, eps={}".format(params.epsilon))
 ax.plot(n_t, z_pinn, "--", label="PINN")
