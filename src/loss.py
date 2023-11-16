@@ -8,7 +8,15 @@ from src.pinn_core import *
 from src.exact import *
 
 class Loss:
-    def __init__(self, epsilon: float, n_points_x: int, n_points_t: int, n_test_x: int, n_test_t: int, device: torch.device):
+    def __init__(self, 
+                 epsilon: float, 
+                 n_points_x: int, 
+                 n_points_t: int, 
+                 n_test_x: int, 
+                 n_test_t: int, 
+                 equation: str,
+                 exact: ExactSolution,
+                 device: torch.device):
        self.epsilon = epsilon
        self.n_points_x = n_points_x
        self.n_points_t = n_points_t
@@ -18,6 +26,7 @@ class Loss:
        self.x, self.t = middle_points((0,1), (0,1), n_points_x, n_points_t, True, device)
        self.n = torch.arange(1, self.n_test_x+1).to(device)
        self.m = torch.arange(1, self.n_test_t+1).to(device)
+       self.exact = exact
 
     def __call__(self, pinn: PINN) -> torch.Tensor:
         x = self.x
@@ -49,33 +58,40 @@ class Loss:
 
         return loss.sum()
     
-    def _rhs(self, x, t):
-        f1 = torch.pi**2 * torch.exp(torch.pi*(x - 2*t)) * torch.sin(2*torch.pi*x)*(4*torch.cos(torch.pi*t) - 3*torch.sin(torch.pi*t))
-        f2 = torch.pi**2 * torch.exp(torch.pi*(x - 2*t)) * torch.sin(torch.pi*t)*(4*torch.cos(2*torch.pi*x) - 3*torch.sin(2*torch.pi*x))
-        rhs = -f1-f2 # -Delta u = f so f = -Delta u, 0 on boundary, the residual will be res = Delta u+f
-        return rhs.reshape(self.n_points_x, self.n_points_t)
+    def _rhs(self, x: torch.Tensor, t: torch.Tensor, equation: str):
+        if equation == "sins":
+            f1 = -4.0*torch.pi*torch.pi*torch.sin(2.0*torch.pi*x)*torch.sin(2.0*torch.pi*t)
+            f2 = -4.0*torch.pi*torch.pi*torch.sin(2.0*torch.pi*x)*torch.sin(2.0*torch.pi*t)
+            return -f1-f2 # -Delta u = f so f = -Delta u, 0 on boundary the residual will be res = Delta u+f
+        if equation == "exp-sins":
+            f1 = self.exact.dx2(x, t)
+            f2 = self.exact.dt2(x, t)
+            return -f1-f2
+        raise ValueError(f"Invalid equation: {equation}")
+
 
 class Error:
     # vm_norm is (v,v)_VM = epsilon (dv/dx,dvdx)+epsilon (dv/dy,dvdy)
 
-    def __init__(self, epsilon: float, n_points_x: int, n_points_t: int, device: torch.device):
+    def __init__(self, epsilon: float, n_points_x: int, n_points_t: int, exact: ExactSolution, device: torch.device):
        self.epsilon = epsilon
        self.n_points_x = n_points_x
        self.n_points_t = n_points_t
+       self.exact = exact
        self.x, self.t = middle_points((0,1), (0,1), n_points_x, n_points_t, True, device)
        self.l2_exact_norm = self._l2_exact_norm()
        self.vm_exact_norm = self._vm_exact_norm()
 
     def l2_norm(self, pinn: PINN) -> float:
         size = self.x.numel()
-        diff = f(pinn, self.x, self.t)-exact_solution(self.x, self.t, self.epsilon)
+        diff = f(pinn, self.x, self.t)-self.exact(self.x, self.t, self.epsilon)
         l2_z_norm = diff.pow(2).sum()/size
         l2_norm = math.sqrt(l2_z_norm) / self.l2_exact_norm
         return l2_norm
     
     def _l2_exact_norm(self) -> float:
         size = self.x.numel()
-        exact = exact_solution(self.x, self.t, self.epsilon)
+        exact = self.exact(self.x, self.t, self.epsilon)
         l2_exact_norm = exact.pow(2).sum()/size
         return math.sqrt(l2_exact_norm)
 
@@ -86,12 +102,12 @@ class Error:
         size = x.numel()
  
         dz_dx = dfdx(pinn, x, t, order=1)
-        exact_dx = exact_solution_dx(x, t, epsilon)
+        exact_dx = self.exact.dx(x, t, epsilon)
         diff_dx = dz_dx - exact_dx
         diff_dx_int = diff_dx.pow(2).sum()/size
 
         dz_dt = dfdt(pinn, x, t, order=1)
-        exact_dt = exact_solution_dy(x,t, self.epsilon)
+        exact_dt = self.exact.dt(x,t, self.epsilon)
         diff_dt = dz_dt - exact_dt
         diff_dt_int = diff_dt.pow(2).sum()/size
 
@@ -102,9 +118,9 @@ class Error:
 
     def _vm_exact_norm(self) -> float:
         size = self.x.numel()
-        exact_dx = exact_solution_dx(self.x, self.t, self.epsilon)
+        exact_dx = self.exact.dx(self.x, self.t, self.epsilon)
         exact_dx_norm = exact_dx.pow(2).sum()/size
-        exact_dt = exact_solution_dy(self.x, self.t, self.epsilon)
+        exact_dt = self.exact.dt(self.x, self.t, self.epsilon)
         exact_dt_norm = exact_dt.pow(2).sum()/size
         vm_exact_norm = self.epsilon*(exact_dx_norm + exact_dt_norm)
         return math.sqrt(vm_exact_norm)

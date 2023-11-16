@@ -19,9 +19,9 @@ args = parser.parse_args()
 tag = args.tag if args.tag is not None else Params().tag
 params = Params(f"results/{tag}/params.ini")
 
-pinn = torch.load(f"results/{tag}/data/pinn.pt")
-exec_time = torch.load(f"results/{tag}/data/exec_time.pt")
-train_result: TrainResult = torch.load(f"results/{tag}/data/train_result.pt")
+pinn = torch.load(f"results/{tag}/data/pinn.pt", map_location=torch.device("cpu"))
+exec_time = torch.load(f"results/{tag}/data/exec_time.pt", map_location=torch.device("cpu"))
+train_result: TrainResult = torch.load(f"results/{tag}/data/train_result.pt", map_location=torch.device("cpu"))
 x_domain = [0.0, 1.0]
 t_domain = [0.0, 1.0]
 x_init_raw = torch.linspace(0.0, 1.0, steps=1000)

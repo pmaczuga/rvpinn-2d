@@ -5,6 +5,7 @@ import time
 import torch
 
 from torch import nn
+from src.exact import ExpSinsExactSolution, SinsExactSolution
 
 from src.params import Params
 from src.pinn_core import *
@@ -12,6 +13,11 @@ from src.loss import Loss, Error
 
 def run(p: Params, device: torch.device):
     print(f"Running on: {device}")
+    
+    if (p.equation == "sins"):
+        exact = SinsExactSolution()
+    elif (p.equation == "exp-sins"):
+        exact = ExpSinsExactSolution()
 
     pinn = PINN(p.layers, p.neurons_per_layer, pinning=True, act=nn.Tanh()).to(device)
 
