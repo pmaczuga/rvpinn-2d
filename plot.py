@@ -67,7 +67,7 @@ fig, ax = plt.subplots()
 loss_label = r"$\frac{\sqrt{{\cal L \rm}_r^\phi(u_\theta)}}{\|u\|_U}$"
 error_label = r"$\frac{\|u - u_\theta\|_U}{\|u\|_U}$"
 ax.loglog(pos_vec, np.sqrt(loss_vector[pos_vec]) / train_result.vm_exact_norm, '-',linewidth = 1.5, label=loss_label, color=loss_c)
-ax.loglog(pos_vec, vm_norm_vector[pos_vec], '--', linewidth=1.5, label=error_label, color=error_c)
+ax.loglog(pos_vec, vm_norm_vector[pos_vec] / train_result.vm_exact_norm, '--', linewidth=1.5, label=error_label, color=error_c)
 ax.legend(loc='lower left', labelcolor='linecolor')
 ax.set_xlabel(r" Iterations ")
 ax.set_ylabel(r" Error (estimates)")

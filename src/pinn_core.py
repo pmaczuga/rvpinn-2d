@@ -127,8 +127,8 @@ def train_model(
 
     result = TrainResult(
         loss          = np.array(loss_values), 
-        vm_norm       = np.array(l2_norm), 
-        l2_norm       = np.array(vm_norm), 
+        vm_norm       = np.array(vm_norm), 
+        l2_norm       = np.array(l2_norm), 
         vm_exact_norm = error_calc.vm_exact_norm,
         l2_exact_norm = error_calc.l2_exact_norm
     )

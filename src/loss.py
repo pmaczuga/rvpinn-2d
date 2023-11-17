@@ -93,37 +93,45 @@ class Error:
         return l2_norm
     
     def _l2_exact_norm(self) -> float:
-        size = self.x.numel()
+        dx = 1.0 / self.n_points_x
+        dt = 1.0 / self.n_points_t
         exact = self.exact(self.x, self.t)
-        l2_exact_norm = exact.pow(2).sum()/size
+        l2_exact_norm = exact.pow(2).sum()*dx*dt
         return math.sqrt(l2_exact_norm)
 
     def vm_norm(self, pinn: PINN) -> float:
         epsilon = self.epsilon
         x = self.x
         t = self.t
-        size = x.numel()
+        dx = 1.0 / self.n_points_x
+        dt = 1.0 / self.n_points_t
  
-        dz_dx = dfdx(pinn, x, t, order=1)
+        dz_dx = dfdx(pinn, x, t, order=1).detach().flatten()
+        dz_dt = dfdt(pinn, x, t, order=1).detach().flatten()
+        x = x.detach().flatten()
+        t = t.detach().flatten()
+
         exact_dx = self.exact.dx(x, t)
         diff_dx = dz_dx - exact_dx
-        diff_dx_int = diff_dx.pow(2).sum()/size
+        diff_dx_int = diff_dx.pow(2).sum()*dx*dt
 
-        dz_dt = dfdt(pinn, x, t, order=1)
-        exact_dt = self.exact.dt(x,t)
+        exact_dt = self.exact.dt(x, t)
         diff_dt = dz_dt - exact_dt
-        diff_dt_int = diff_dt.pow(2).sum()/size
+        diff_dt_int = diff_dt.pow(2).sum()*dx*dt
 
         vm_z_norm = epsilon*(diff_dx_int + diff_dt_int)
 
-        vm_norm = math.sqrt(vm_z_norm) / self.vm_exact_norm
+        vm_norm = math.sqrt(vm_z_norm) # / self.vm_exact_norm
         return vm_norm
 
     def _vm_exact_norm(self) -> float:
-        size = self.x.numel()
-        exact_dx = self.exact.dx(self.x, self.t)
-        exact_dx_norm = exact_dx.pow(2).sum()/size
-        exact_dt = self.exact.dt(self.x, self.t)
-        exact_dt_norm = exact_dt.pow(2).sum()/size
-        vm_exact_norm = self.epsilon*(exact_dx_norm + exact_dt_norm)
+        dx = 1.0 / self.n_points_x
+        dt = 1.0 / self.n_points_t
+        x = self.x.detach().flatten()
+        t = self.t.detach().flatten()
+        exact_dx = self.exact.dx(x, t)
+        exact_dx_norm = exact_dx.pow(2).sum()*dx*dt
+        exact_dt = self.exact.dt(x, t)
+        exact_dt_norm = exact_dt.pow(2).sum()*dx*dt
+        vm_exact_norm = self.epsilon*(exact_dx_norm + exact_dt_norm).item()
         return math.sqrt(vm_exact_norm)
