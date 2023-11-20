@@ -46,3 +46,8 @@ def plot_color(z: torch.Tensor, x: torch.Tensor, t: torch.Tensor, n_points_x, n_
 def running_average(y, window=100):
     cumsum = np.cumsum(np.insert(y, 0, 0))
     return (cumsum[window:] - cumsum[:-window]) / float(window)
+
+def save_fig(fig, filename, tag):
+    filepath = f"results/{tag}/{filename}"
+    fig.savefig(filepath, bbox_inches='tight', dpi=200)
+    return filename
