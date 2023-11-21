@@ -9,7 +9,7 @@ from src.params import Params
 
 from src.plot_utils import *
 
-# matplotlib.rcParams['text.latex.preamble'] = r'\usepackage{amsmath}'
+matplotlib.rcParams['text.latex.preamble'] = r'\usepackage{amsmath}'
 
 parser = argparse.ArgumentParser(
                     prog='RVPINN',
@@ -58,6 +58,8 @@ for n in range(params.epochs):
     best = 1*vec[n]
 
 pos_vec = np.array(pos_vec, dtype=int) - 1
+sqrt_loss_rel = np.sqrt(train_result.loss[pos_vec]) / train_result.vm_exact_norm
+vm_norm_rel = train_result.vm_norm[pos_vec] / train_result.vm_exact_norm
 ##########################################################################
 
 ##########################################################################
@@ -66,13 +68,29 @@ pos_vec = np.array(pos_vec, dtype=int) - 1
 fig, ax = plt.subplots()
 loss_label = r"$\frac{\sqrt{{\cal L \rm}_r^\phi(u_\theta)}}{\|u\|_U}$"
 error_label = r"$\frac{\|u - u_\theta\|_U}{\|u\|_U}$"
-ax.loglog(pos_vec, np.sqrt(loss_vector[pos_vec]) / train_result.vm_exact_norm, '-',linewidth = 1.5, label=loss_label, color=loss_c)
-ax.loglog(pos_vec, vm_norm_vector[pos_vec] / train_result.vm_exact_norm, '--', linewidth=1.5, label=error_label, color=error_c)
+ax.loglog(pos_vec, sqrt_loss_rel, '-',linewidth = 1.5, label=loss_label, color=loss_c)
+ax.loglog(pos_vec, vm_norm_rel, '--', linewidth=1.5, label=error_label, color=error_c)
 ax.legend(loc='lower left', labelcolor='linecolor')
 ax.set_xlabel(r" Iterations ")
 ax.set_ylabel(r" Error (estimates)")
 save_fig(fig, "error-and-loss.png", tag)
 save_fig(fig, "error-and-loss.pdf", tag)
+
+##########################################################################
+# Error to sqrt(loss)
+##########################################################################
+fig, ax = plt.subplots()
+level = pos_vec[int(np.floor(len(pos_vec) * 0.2))]
+ax.loglog(sqrt_loss_rel, vm_norm_rel, color=error_c, label="Error")
+mpl.slope_marker((sqrt_loss_rel[level], 0.8*vm_norm_rel[level]), (1, 1), \
+ax=ax, invert=False, poly_kwargs={'facecolor': 'white',
+                                    'edgecolor':'black'})
+# ax.loglog(np.sqrt(loss_vector[pos_vec]), np.sqrt(loss_vector[pos_vec]), color=loss_c, label="$y=x$")
+ax.set_xlabel(r"Relative $\sqrt{Loss}$")
+ax.set_ylabel(r"Relative Error ")
+# ax.set_title(r"Error to $\sqrt{Loss}$")
+save_fig(fig, "error-to-sqrt-loss.png", tag)
+save_fig(fig, "error-to-sqrt-loss.pdf", tag)
 
 ##########################################################################
 # H1 error
@@ -156,21 +174,5 @@ ax.set_xlabel("t")
 ax.xaxis.set_ticks([0.0, 0.5, 1.0])
 save_fig(fig, "t-slice.png", tag)
 save_fig(fig, "t-slice.pdf", tag)
-
-##########################################################################
-# Error to sqrt(loss)
-##########################################################################
-fig, ax = plt.subplots()
-level = pos_vec[int(np.floor(len(pos_vec) * 0.2))]
-ax.loglog(np.sqrt(np.sqrt(loss_vector[pos_vec])) / train_result.vm_exact_norm, train_result.vm_norm[pos_vec] / train_result.vm_exact_norm, color=error_c, label="Error")
-mpl.slope_marker((loss_vector[level]**(1/2) / train_result.vm_exact_norm, 0.8*train_result.vm_norm[level] / train_result.vm_exact_norm), (1, 1), \
-ax=ax, invert=False, poly_kwargs={'facecolor': 'white',
-                                    'edgecolor':'black'})
-# ax.loglog(np.sqrt(loss_vector[pos_vec]), np.sqrt(loss_vector[pos_vec]), color=loss_c, label="$y=x$")
-ax.set_xlabel(r"Relative $\sqrt{Loss}$")
-ax.set_ylabel(r"Relative Error ")
-# ax.set_title(r"Error to $\sqrt{Loss}$")
-save_fig(fig, "error-to-sqrt-loss.png", tag)
-save_fig(fig, "error-to-sqrt-loss.pdf", tag)
 
 plt.show()

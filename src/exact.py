@@ -50,20 +50,13 @@ class ExpSinsExactSolution(ExactSolution):
         return res
     
     def dx2(self, x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
-        exp1 = 4.0*torch.pi*torch.pi * torch.exp(torch.pi*(x-2*t)) * torch.sin(torch.pi * t)
-        sin1 = torch.sin(2*torch.pi*x)
-        res1 = exp1 * sin1
-        exp2 = 4.0*torch.pi*torch.pi* torch.exp(torch.pi*(x-2*t)) * torch.sin(torch.pi * t)
-        sin2 = torch.cos(2*torch.pi*x)
-        res2 = exp2 * sin2
-        return res1 + res2
+        exp1 = -pi*pi*exp(pi*(x-2*t)) * sin(pi*t)
+        sins = 4*cos(2*pi*x) - 3*sin(2*pi*x)
+        res = exp1 * sins
+        return res
     
     def dt2(self, x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
-        exp1 = 4.0*torch.pi*torch.pi * torch.exp(torch.pi*(x-2*t)) *torch.sin(torch.pi * t)
-        sin1 = torch.cos(2*torch.pi*x)
-        res1 = exp1 * sin1
-        exp2 = 4.0*torch.pi*torch.pi * torch.exp(torch.pi*(x-2*t)) * torch.cos(torch.pi * t)
-        sin2 = torch.sin(2*torch.pi*x)
-        res2 = exp2 * sin2
-        return res1 + res2
-    
+        exp1 = pi*pi*exp(pi*(x-2*t)) * sin(2*pi*x)
+        sins = 4*cos(pi*t) - 3*sin(pi*t)
+        res = exp1 * sins
+        return res
