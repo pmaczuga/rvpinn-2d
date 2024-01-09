@@ -44,7 +44,7 @@ class ExpSinsExactSolution(ExactSolution):
         return res
 
     def dt(self, x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
-        exp1 = -exp(pi*(x-2*t)) * sin(2*pi*x)
+        exp1 = -pi * exp(pi*(x-2*t)) * sin(2*pi*x)
         sins = cos(pi*t) - 2*sin(pi*t)
         res = exp1 * sins
         return res

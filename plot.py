@@ -2,6 +2,7 @@ import argparse
 import math
 from matplotlib import pyplot as plt
 import matplotlib
+from matplotlib import ticker
 import torch
 from src.exact import ExpSinsExactSolution, SinsExactSolution
 import mpltools.annotation as mpl
@@ -10,6 +11,9 @@ from src.params import Params
 from src.plot_utils import *
 
 matplotlib.rcParams['text.latex.preamble'] = r'\usepackage{amsmath}'
+matplotlib.rc('text', usetex=True)
+font = {'family' : 'sans-serif', 'size' : 21}
+matplotlib.rc('font', **font)
 
 parser = argparse.ArgumentParser(
                     prog='RVPINN',
@@ -66,11 +70,20 @@ vm_norm_rel = train_result.vm_norm[pos_vec] / train_result.vm_exact_norm
 # Loss and error
 ##########################################################################
 fig, ax = plt.subplots()
+fig.set_figwidth(7)
 loss_label = r"$\frac{\sqrt{{\cal L \rm}_r^\phi(u_\theta)}}{\|u\|_U}$"
 error_label = r"$\frac{\|u - u_\theta\|_U}{\|u\|_U}$"
 ax.loglog(pos_vec, sqrt_loss_rel, '-',linewidth = 1.5, label=loss_label, color=loss_c)
 ax.loglog(pos_vec, vm_norm_rel, '--', linewidth=1.5, label=error_label, color=error_c)
 ax.legend(loc='lower left', labelcolor='linecolor')
+
+# numticks = int(np.floor(np.log10(params.epochs)))
+# locmaj = matplotlib.ticker.LogLocator(base=10.0, subs=(0.1,1.0, ))
+# ax.xaxis.set_major_locator(locmaj)
+# locmin = matplotlib.ticker.LogLocator(base=10.0, subs=(0.2,0.4,0.6,0.8), numticks=numticks)
+# ax.xaxis.set_minor_locator(locmin)
+# ax.xaxis.set_minor_formatter(matplotlib.ticker.NullFormatter())
+
 ax.set_xlabel(r" Iterations ")
 ax.set_ylabel(r" Error (estimates)")
 save_fig(fig, "error-and-loss.png", tag)
@@ -96,7 +109,7 @@ save_fig(fig, "error-to-sqrt-loss.pdf", tag)
 # H1 error
 ##########################################################################
 fig, ax = plt.subplots()
-ax.plot(vm_norm_vector , '-',linewidth = 1.5, label=loss_label, color=loss_c)
+ax.loglog(vm_norm_vector , '-',linewidth = 1.5, label=loss_label, color=loss_c)
 ax.set_xlabel(r" Iterations ")
 ax.set_ylabel(r" H1 error")
 save_fig(fig, "h1.png", tag)
@@ -106,7 +119,7 @@ save_fig(fig, "h1.pdf", tag)
 # L2 error
 ##########################################################################
 fig, ax = plt.subplots()
-ax.plot(vm_norm_vector , '-',linewidth = 1.5, label=loss_label, color=loss_c)
+ax.loglog(l2_norm_vector , '-',linewidth = 1.5, label=loss_label, color=loss_c)
 ax.set_xlabel(r" Iterations ")
 ax.set_ylabel(r" L2 error")
 save_fig(fig, "l2.png", tag)
@@ -167,10 +180,11 @@ z_pinn = f(pinn, n_x.reshape(-1, 1), n_t.reshape(-1, 1)).detach().reshape(-1)
 z_exact = exact(n_x, n_t)
 fig, ax = plt.subplots()
 ax.set_title("Slice along t axis at x=0.25")
-ax.plot(n_t, z_pinn, "--", label="RVPINN")
-ax.plot(n_t, z_exact, label="Exact")
-ax.legend()
-ax.set_xlabel("t")
+ax.plot(n_t, z_pinn, "-", label="RVPINN", color=vpinn_c, linewidth = 2)
+ax.plot(n_t, z_exact, "--", label="Analytical", color=analytical_c, linewidth=2)
+ax.legend(labelcolor='linecolor')
+ax.set_xlabel("$t$")
+ax.set_ylabel("$u$")
 ax.xaxis.set_ticks([0.0, 0.5, 1.0])
 save_fig(fig, "t-slice.png", tag)
 save_fig(fig, "t-slice.pdf", tag)
