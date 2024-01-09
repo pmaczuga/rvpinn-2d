@@ -6,6 +6,7 @@ from src.points import middle_points
 from src.test_func import gramm_const, test_t, test_t_dt, test_x, test_x_dx
 from src.pinn_core import *
 from src.exact import *
+from src.test_func_fem import calc_A, calc_G, calc_G_T, calc_S
 
 class Loss:
     def __init__(self, 
@@ -22,7 +23,9 @@ class Loss:
        self.n_points_t = n_points_t
        self.n_test_x = n_test_x
        self.n_test_t = n_test_t
-       self.G = gramm_const(1.0, n_test_x, n_test_t, device)
+       self.G_transposed = calc_G_T(n_test_x, device)
+       self.A = calc_A(n_test_x, device)
+       self.Sx, self.St = calc_S(n_test_x, device)
        self.x, self.t = middle_points((0,1), (0,1), n_points_x, n_points_t, True, device)
        self.n = torch.arange(1, self.n_test_x+1).to(device)
        self.m = torch.arange(1, self.n_test_t+1).to(device)
@@ -37,29 +40,17 @@ class Loss:
         dx = 1.0 / self.n_points_x
         dt = 1.0 / self.n_points_t
 
-        dpinn_dx = dfdx(pinn, x, t, order=1).reshape(self.n_points_x, self.n_points_t)
-        dpinn_dt = dfdt(pinn, x, t, order=1).reshape(self.n_points_x, self.n_points_t)
-        rhs = self._rhs(x, t, self.equation)
+        dpinn_dx = dfdx(pinn, x, t, order=1).reshape(-1)
+        dpinn_dt = dfdt(pinn, x, t, order=1).reshape(-1)
+        rhs = self._rhs(x, t, self.equation).reshape(-1)
 
-        x_times_n = torch.einsum("xt,n->xtn", x.reshape(self.n_points_x, self.n_points_t), self.n)
-        test_x = torch.sin(math.pi*x_times_n)
-        t_times_m = torch.einsum("xt,m->xtm", t.reshape(self.n_points_x, self.n_points_t), self.m)
-        test_t = torch.sin(math.pi * t_times_m)
-        test = torch.einsum("xtn,xtm->xtnm", test_x, test_t)
-        test_x_dx = torch.pi * torch.einsum("n,xtn->xtn", self.n, torch.cos(torch.pi*x_times_n))
-        test_dx = torch.einsum("xtn,xtm->xtnm", test_x_dx, test_t)
-        test_t_dt = torch.pi * torch.einsum("m,xtm->xtm", self.m, torch.cos(torch.pi*t_times_m))
-        test_dt = torch.einsum("xtn,xtm->xtnm", test_x, test_t_dt)
+        residuum = torch.matmul(self.Sx, dpinn_dx) + torch.matmul(self.St, dpinn_dt) - torch.matmul(self.A, rhs)
 
-        loss1 = dx * dt * epsilon * torch.einsum("xt,xtnm->nm", dpinn_dx, test_dx)
-        loss2 = dx * dt * epsilon * torch.einsum("xt,xtnm->nm", dpinn_dt, test_dt)
-        loss3 = dx * dt * torch.einsum("xt,xtnm->nm", rhs, test)
-        loss = loss1 + loss2 - loss3
-        loss = loss**2 * self.G
+        loss = torch.matmul(torch.matmul(residuum, self.G_transposed), residuum)
 
         return loss.sum()
     
-    def _rhs(self, x: torch.Tensor, t: torch.Tensor, equation: str):
+    def _rhs(self, x: torch.Tensor, t: torch.Tensor, equation: str) -> torch.Tensor:
         if equation == "sins":
             f1 = -4.0*torch.pi*torch.pi*torch.sin(2.0*torch.pi*x)*torch.sin(2.0*torch.pi*t)
             f2 = -4.0*torch.pi*torch.pi*torch.sin(2.0*torch.pi*x)*torch.sin(2.0*torch.pi*t)
